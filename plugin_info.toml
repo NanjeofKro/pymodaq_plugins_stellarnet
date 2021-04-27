@@ -1,7 +1,7 @@
 [plugin-info]
 SHORT_PLUGIN_NAME = 'stellarnet'
 
-package-url = 'https://github.com/rgeneaux/pymodaq_plugins_stellarnet'
+package-url = 'https://github.com/Attolab/pymodaq_plugins_stellarnet'
 description = 'Plugin for StellarNet spectrometers'
 
 author = 'Romain Géneaux'
