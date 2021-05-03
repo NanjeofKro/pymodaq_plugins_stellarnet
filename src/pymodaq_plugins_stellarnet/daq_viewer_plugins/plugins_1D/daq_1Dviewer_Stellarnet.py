@@ -11,9 +11,11 @@ from PyQt5 import QtWidgets
 import usb
 from ...hardware import stellarnet as sn
 from scipy.ndimage.filters import uniform_filter1d
+import glob
 
-cal_path_default = "C:/Miniconda3/envs/manip/Lib/site-packages/" \
-                   "pymodaq_plugins_stellarnet/hardware/MyCaL-C20111832-VIS-IC2.CAL"
+cal_path_default = "C:\\Users\\admin-local\\PycharmProjects\\pymodaq_plugins_stellarnet\\src\\" \
+                   "pymodaq_plugins_stellarnet\\hardware\\MyCaL-C20111832-VIS-IC2.CAL"
+
 
 class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
     """
@@ -185,7 +187,6 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                         dim="Data1D",
                         data=[np.asarray(self.controller.read_spectrum())],
                         x_axis=Axis(data=data_x_axis, label="Wavelength", units="m"),
-                        label="Signal (counts)",
                     )
                 )
             ]
@@ -223,20 +224,15 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
     def do_irradiance_calibration(self):
         calibration = []
-        try:
-            with open(self.settings.child("cal_path").value(), "r") as file:
-                for line in file:
-                    if line[0].isdigit():
-                        calibration.append(np.fromstring(line, sep=" "))
-            calibration = np.asarray(calibration)
+        with open(self.settings.child("cal_path").value(), "r") as file:
+            for line in file:
+                if line[0].isdigit():
+                    calibration.append(np.fromstring(line, sep=" "))
+        calibration = np.asarray(calibration)
 
-            self.calibration = np.interp(
-                self.x_axis[0]["data"]*1e9, calibration[:, 0], calibration[:, 1]
-            )
-
-        except Exception as e:
-            self.emit_status(ThreadCommand('Update_Status',[getLineInfo()+ str(e),'log']))
-            self.status.info = getLineInfo() + str(e)
+        self.calibration = np.interp(
+            self.x_axis[0]["data"]*1e9, calibration[:, 0], calibration[:, 1]
+        )
 
     def moving_average(self, spectrum):
         N = self.controller.window_width
