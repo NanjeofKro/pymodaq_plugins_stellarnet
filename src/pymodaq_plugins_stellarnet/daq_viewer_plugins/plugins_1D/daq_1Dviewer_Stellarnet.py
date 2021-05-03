@@ -106,14 +106,8 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         elif param.name() == "irradiance_on":
             if param.value():  # calibrated
                 self.calib_on = True
-                label = "Irradiance"
-                units = "W/m2"
             else:
                 self.calib_on = False
-                label = "Signal"
-                units = "counts"
-            self.y_axis = Axis(label=label, units=units)
-            self.emit_y_axis()  # Does not work yet
 
         elif param.name() == "cal_path":
             self.do_irradiance_calibration()
@@ -282,18 +276,18 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                     np.asarray(self.moving_average(self.controller.read_spectrum()))
                 ]
             label = "Irradiance"
-            units = "W/m2"
+            units = "(W/m2)"
         else:
             data_tot = [
                 np.asarray(self.moving_average(self.controller.read_spectrum()))
             ]
             label = "Signal"
-            units = "counts"
+            units = "(counts)"
 
         self.data_grabed_signal.emit(
             [
                 DataFromPlugins(
-                    name="StellarNet", data=data_tot, dim="Data1D", labels=["data"]
+                    name="StellarNet", data=data_tot, dim="Data1D", labels=[label + units]
                 )
             ]
         )
