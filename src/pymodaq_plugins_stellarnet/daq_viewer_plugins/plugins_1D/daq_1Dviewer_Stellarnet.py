@@ -6,28 +6,41 @@ from PyQt5 import QtWidgets
 import usb
 from ...hardware import stellarnet as sn
 from scipy.ndimage.filters import uniform_filter1d
+import glob
+
+cal_path = glob.glob(
+    'C:\\Users\\admin-local\PycharmProjects\pymodaq_plugins_stellarnet\src\pymodaq_plugins_stellarnet\hardware\*.CAL')
+
 
 class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
     """
     """
-    params = comon_parameters + [{'title': 'Spectrometer Model:', 'name': 'spectrometer_model', 'type': 'list', 'value':[],
-                               'readonly': True},
-                              {'title': 'Spectrometer ID:', 'name': 'spectrometer_id', 'type': 'int', 'value': 0,
-                               'readonly': True},
-                              {'title': 'Integration time (ms):', 'name': 'int_time', 'type': 'int', 'value': 100,
-                               'default': 100, 'min': 2, 'max': 65535},
-                              {'title': 'X Timing Rate:', 'name': 'x_timing', 'type': 'int', 'value': 3, 'default':3,
-                               'min':1, 'max':3},
-                              {'title': 'Moving average window size:', 'name': 'x_smooth', 'type': 'int',
-                               'value': 0, 'min': 0},
-                              {'title': 'Number of spectra to average:', 'name': 'scans_to_avg', 'type': 'int', 'value': 1,
-                               'default': 1, 'min': 1},
-            ]
+    params = comon_parameters + [
+        {'title': 'Spectrometer Model:', 'name': 'spectrometer_model', 'type': 'list', 'value': [],
+         'readonly': True},
+        {'title': 'Spectrometer ID:', 'name': 'spectrometer_id', 'type': 'int', 'value': 0,
+         'readonly': True},
+        {'title': 'Calibration file:', 'name': 'cal_path', 'type': 'browsepath', 'value': cal_path[0],
+         'readonly': False},
+        {'title': 'Irradiance or counts (T/F):', 'name': 'irradiance_on', 'type': 'bool',
+         'value': False},
+        {'title': 'Integration time (ms):', 'name': 'int_time', 'type': 'int', 'value': 100,
+         'default': 100, 'min': 2, 'max': 65535},
+        {'title': 'X Timing Rate:', 'name': 'x_timing', 'type': 'int', 'value': 3, 'default': 3,
+         'min': 1, 'max': 3},
+        {'title': 'Moving average window size:', 'name': 'x_smooth', 'type': 'int',
+         'value': 0, 'min': 0},
+        {'title': 'Number of spectra to average:', 'name': 'scans_to_avg', 'type': 'int', 'value': 1,
+         'default': 1, 'min': 1},
+    ]
 
     def __init__(self, parent=None, params_state=None):
 
         super().__init__(parent, params_state)
         self.x_axis = None
+        self.calibration = None
+        self.controller = None
+        self.calib_on = False
 
     def commit_settings(self, param):
         """
@@ -40,6 +53,20 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             self.controller.window_width = param.value()
         elif param.name() == "scans_to_avg":
             self.controller.set_config(scans_to_avg=param.value())
+        elif param.name() == "irradiance_on":
+            if param.value():  # calibrated
+                self.calib_on = True
+                label = "Irradiance"
+                units = "W/m2"
+            else:
+                self.calib_on = False
+                label = "Signal"
+                units = "counts"
+            self.y_axis = Axis(label=label, units=units)
+            self.emit_y_axis()  # Does not work yet
+
+        elif param.name() == "cal_path":
+            self.do_irradiance_calibration()
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -57,8 +84,8 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         """
 
         try:
-            self.status.update(edict(initialized=False,info="",x_axis=None,y_axis=None,controller=None))
-            if self.settings.child(('controller_status')).value() == "Slave":
+            self.status.update(edict(initialized=False, info="", x_axis=None, y_axis=None, controller=None))
+            if self.settings.child('controller_status').value() == "Slave":
                 if controller is None:
                     raise Exception('no controller has been defined externally while this detector is a slave one')
                 else:
@@ -78,16 +105,21 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
             # get the x_axis (you may want to to this also in the commit settings if x_axis may have changed
             data_x_axis = self.get_wl_axis()
-            self.x_axis = [Axis(data=data_x_axis, label='Wavelength', units='nm')]
+            self.x_axis = [Axis(data=data_x_axis, label='Wavelength', units='m')]
             self.emit_x_axis()
 
-            #initialize viewers pannel with the future type of data
+            # initialize viewers pannel with the future type of data
             name = usb.util.get_string(self.controller._device, 100, self.controller._device.iProduct)
             data_init = [(DataFromPlugins(name=name, dim='Data1D', data=[np.asarray(self.controller.read_spectrum())],
-                                        x_axis=Axis(data=data_x_axis, label='Wavelength', units='nm')))]
+                                          x_axis=Axis(data=data_x_axis, label='Wavelength', units='m')))]
             QtWidgets.QApplication.processEvents()
             self.data_grabed_signal_temp.emit(data_init)
-            self.data_grabed_signal_temp.emit(data_init) #works the second time for some reason
+            self.data_grabed_signal_temp.emit(data_init)  # works the second time for some reason
+
+            try:
+                self.do_irradiance_calibration()
+            except Exception as e:
+                self.emit_status(ThreadCommand('Update_Status', [getLineInfo() + str(e), "log"]))
 
             self.status.info = "Log test"
             self.status.initialized = True
@@ -95,9 +127,9 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             return self.status
 
         except Exception as e:
-            self.emit_status(ThreadCommand('Update_Status',[getLineInfo()+ str(e),'log']))
-            self.status.info=getLineInfo()+ str(e)
-            self.status.initialized=False
+            self.emit_status(ThreadCommand('Update_Status', [getLineInfo() + str(e), 'log']))
+            self.status.info = getLineInfo() + str(e)
+            self.status.initialized = False
             return self.status
 
     def close(self):
@@ -106,6 +138,16 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         """
         return
 
+    def do_irradiance_calibration(self):
+        calibration = []
+        with open(self.settings.child('cal_path').value(), 'r') as file:
+            for line in file:
+                if line[0].isdigit():
+                    calibration.append(np.fromstring(line, sep=' '))
+        calibration = np.asarray(calibration)
+
+        self.calibration = np.interp(self.x_axis[0]['data'], calibration[:, 0], calibration[:, 1])
+
     def moving_average(self, spectrum):
         N = self.controller.window_width
         if N == 0:
@@ -113,17 +155,17 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         else:
             return uniform_filter1d(spectrum, size=N)
 
-    def get_wl_axis(self):
+    def get_wl_axis(self): #in meters
         pixels = np.arange(sn.StellarNet._PIXEL_MAP[self.controller._config['det_type']])
 
         if 'coeffs' not in self.controller._config:
             raise Exception('Device has no stored coefficients')
 
         coeffs = self.controller._config['coeffs']
-        return ((pixels**3)*coeffs[3]/8.0 +
-                (pixels**2)*coeffs[1]/4.0 +
-                pixels*coeffs[0]/2.0 +
-                coeffs[2])
+        return 1e9 * ((pixels ** 3) * coeffs[3] / 8.0 +
+                      (pixels ** 2) * coeffs[1] / 4.0 +
+                      pixels * coeffs[0] / 2.0 +
+                      coeffs[2])
 
     def grab_data(self, Naverage=1, **kwargs):
         """
@@ -133,9 +175,20 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         kwargs: (dict) of others optionals arguments
         """
         ##synchrone version (blocking function)
-        data_tot = [np.asarray(self.moving_average(self.controller.read_spectrum()))]
+        if self.calib_on:
+            try:
+                data_tot = [self.calibration * np.asarray(self.moving_average(self.controller.read_spectrum()))]
+            except:
+                data_tot = [np.asarray(self.moving_average(self.controller.read_spectrum()))]
+            label = "Irradiance"
+            units = "W/m2"
+        else:
+            data_tot = [np.asarray(self.moving_average(self.controller.read_spectrum()))]
+            label = "Signal"
+            units = "counts"
+
         self.data_grabed_signal.emit([DataFromPlugins(name='StellarNet', data=data_tot,
-                                                          dim='Data1D', labels=['data'])])
+                                                      dim='Data1D', labels=['data'])])
 
     # def callback(self):
     #     """optional asynchrone method called when the detector has finished its acquisition of data"""
