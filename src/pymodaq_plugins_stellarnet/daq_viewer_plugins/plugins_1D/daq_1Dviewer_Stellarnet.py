@@ -237,7 +237,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         calibration = np.asarray(calibration)
 
         self.calibration = np.interp(
-            self.x_axis[0]["data"], calibration[:, 0], calibration[:, 1]
+            self.x_axis[0]["data"]*1e9, calibration[:, 0], calibration[:, 1]
         )
 
     def moving_average(self, spectrum):
@@ -256,7 +256,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             raise Exception("Device has no stored coefficients")
 
         coeffs = self.controller._config["coeffs"]
-        return 1e9 * (
+        return 1e-9 * (
             (pixels ** 3) * coeffs[3] / 8.0
             + (pixels ** 2) * coeffs[1] / 4.0
             + pixels * coeffs[0] / 2.0
