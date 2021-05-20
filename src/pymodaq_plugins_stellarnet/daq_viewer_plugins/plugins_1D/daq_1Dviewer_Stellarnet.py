@@ -50,6 +50,12 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             "value": False,
         },
         {
+            "title": "Take snapshot:",
+            "name": "take_snap",
+            "type": "bool",
+            "value": False,
+        },
+        {
             "title": "Integration time (ms):",
             "name": "int_time",
             "type": "int",
@@ -91,6 +97,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         self.calibration = None
         self.controller = None
         self.calib_on = False
+        self.snapshot = None
 
     def commit_settings(self, param):
         """
@@ -111,6 +118,17 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
         elif param.name() == "cal_path":
             self.do_irradiance_calibration()
+
+        elif param.name() == "take_snap":
+            try:
+                self.snapshot = np.asarray(self.moving_average(self.controller.read_spectrum()))
+                self.settings.child("take_snap").setValue(False)
+
+            except Exception as e:
+                self.emit_status(
+                    ThreadCommand("Update_Status", [getLineInfo() + str(e), "log"])
+                )
+                self.status.info = getLineInfo() + str(e)
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -275,19 +293,22 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                 data_tot = [
                     np.asarray(self.moving_average(self.controller.read_spectrum()))
                 ]
-            label = "Irradiance"
-            units = "(W/m2)"
+            label = "Irradiance (W/m2)"
+
         else:
             data_tot = [
                 np.asarray(self.moving_average(self.controller.read_spectrum()))
             ]
-            label = "Signal"
-            units = "(counts)"
+            label = ["Signal (counts)"]
+
+        if self.snapshot is not None:
+            data_tot.append(self.snapshot)
+            label.append("Snapshot")
 
         self.data_grabed_signal.emit(
             [
                 DataFromPlugins(
-                    name="StellarNet", data=data_tot, dim="Data1D", labels=[label + units]
+                    name="StellarNet", data=data_tot, dim="Data1D", labels=label
                 )
             ]
         )
