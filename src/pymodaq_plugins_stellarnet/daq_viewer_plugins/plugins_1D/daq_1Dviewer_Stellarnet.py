@@ -11,11 +11,7 @@ from PyQt5 import QtWidgets
 import usb
 from ...hardware import stellarnet as sn
 from scipy.ndimage.filters import uniform_filter1d
-import glob
-
-cal_path_default = "C:\\Users\\admin-local\\PycharmProjects\\pymodaq_plugins_stellarnet\\src\\" \
-                   "pymodaq_plugins_stellarnet\\hardware\\MyCaL-C20111832-VIS-IC2.CAL"
-
+import os, glob
 
 class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
     """
@@ -40,7 +36,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             "title": "Calibration file:",
             "name": "cal_path",
             "type": "browsepath",
-            "value": cal_path_default,
+            "value": "",
             "readonly": False,
         },
         {
@@ -90,14 +86,22 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         },
     ]
 
+    hardware_averaging = False
+
     def __init__(self, parent=None, params_state=None):
 
         super().__init__(parent, params_state)
         self.x_axis = None
         self.calibration = None
         self.controller = None
+        self.calib_file_ok = None
         self.calib_on = False
         self.snapshot = None
+
+        if self.settings.child("cal_path").value() == "":
+            sn_path = os.path.dirname(sn.__file__)
+            cal_path = glob.glob(sn_path+"\\*.CAL")[0]
+            self.settings.child("cal_path").setValue(cal_path)
 
     def commit_settings(self, param):
         """
@@ -146,6 +150,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         """
 
         try:
+            print(os.getcwd())
             self.status.update(
                 edict(
                     initialized=False,
@@ -242,15 +247,26 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
     def do_irradiance_calibration(self):
         calibration = []
-        with open(self.settings.child("cal_path").value(), "r") as file:
-            for line in file:
-                if line[0].isdigit():
-                    calibration.append(np.fromstring(line, sep=" "))
-        calibration = np.asarray(calibration)
+        try:
+            with open(self.settings.child("cal_path").value(), "r") as file:
+                for line in file:
+                    if line[0].isdigit():
+                        calibration.append(np.fromstring(line, sep=" "))
+            calibration = np.asarray(calibration)
 
-        self.calibration = np.interp(
-            self.x_axis[0]["data"]*1e9, calibration[:, 0], calibration[:, 1]
-        )
+            idx_nonzero = np.nonzero(calibration[:, 1])[0]
+            lowE_avg = np.mean(calibration[idx_nonzero[:10], 1])
+            calibration[calibration[:, 1] == 0, 1] = lowE_avg
+
+            self.calib_file_ok = True
+
+            self.calibration = np.interp(
+                self.x_axis[0]["data"]*1e9, calibration[:, 0], calibration[:, 1]
+            )
+
+        except:
+            self.calib_file_ok = False
+            self.calibration = None
 
     def moving_average(self, spectrum):
         N = self.controller.window_width
@@ -283,7 +299,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         kwargs: (dict) of others optionals arguments
         """
         ##synchrone version (blocking function)
-        if self.calib_on:
+        if self.calib_on and self.calib_file_ok:
             try:
                 data_tot = [
                     self.calibration
