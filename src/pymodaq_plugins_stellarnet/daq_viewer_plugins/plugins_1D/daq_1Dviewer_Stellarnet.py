@@ -324,7 +324,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         self.data_grabed_signal.emit(
             [
                 DataFromPlugins(
-                    name="StellarNet", data=data_tot, dim="Data1D", labels=label
+                    name="StellarNet", data=data_tot, dim="Data1D", labels=label, xaxis=self.x_axis[0]
                 )
             ]
         )
