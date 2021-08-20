@@ -1,12 +1,41 @@
 pymodaq_plugins_stellarnet (StellarNet)
 #############################
+
+.. image:: https://img.shields.io/pypi/v/pymodaq_plugins_stellarnet.svg
+   :target: https://pypi.org/project/pymodaq_plugins_stellarnet/
+   :alt: Latest Version
+
+.. image:: https://readthedocs.org/projects/pymodaq/badge/?version=latest
+   :target: https://pymodaq.readthedocs.io/en/stable/?badge=latest
+   :alt: Documentation Status
+
+.. image:: https://github.com/CEMES-CNRS/pymodaq_plugins_stellarnet/workflows/Upload%20Python%20Package/badge.svg
+    :target: https://github.com/CEMES-CNRS/pymodaq_plugins_stellarnet
+
 Custom Plugin to use StellarNet spectrometers in PyMoDAQ.
+
 
 Authors
 =======
 
-* _R. Géneaux
+* Romain Géneaux
 
+Contributors
+============
+
+
+Instruments
+===========
+
+Below is the list of instruments included in this plugin
+
+Viewer1D
+++++++++
+
+* **Stellarnet**: USB spectrometers made by StellarNet, Inc (https://www.stellarnet.us/spectrometers/).
+
+Other Infos
+===========
 
 Capabilities
 ++++++++++++
