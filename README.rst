@@ -9,8 +9,8 @@ pymodaq_plugins_stellarnet (StellarNet)
    :target: https://pymodaq.readthedocs.io/en/stable/?badge=latest
    :alt: Documentation Status
 
-.. image:: https://github.com/CEMES-CNRS/pymodaq_plugins_stellarnet/workflows/Upload%20Python%20Package/badge.svg
-    :target: https://github.com/CEMES-CNRS/pymodaq_plugins_stellarnet
+.. image:: https://github.com/Attolab/pymodaq_plugins_stellarnet/workflows/Upload%20Python%20Package/badge.svg
+    :target: https://github.com/Attolab/pymodaq_plugins_stellarnet
 
 Custom Plugin to use StellarNet spectrometers in PyMoDAQ.
 
