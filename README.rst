@@ -1,5 +1,5 @@
 pymodaq_plugins_stellarnet (StellarNet)
-#############################
+#######################################
 
 .. image:: https://img.shields.io/pypi/v/pymodaq_plugins_stellarnet.svg
    :target: https://pypi.org/project/pymodaq_plugins_stellarnet/
