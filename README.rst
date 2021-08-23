@@ -12,7 +12,7 @@ pymodaq_plugins_stellarnet (StellarNet)
 .. image:: https://github.com/Attolab/pymodaq_plugins_stellarnet/workflows/Upload%20Python%20Package/badge.svg
     :target: https://github.com/Attolab/pymodaq_plugins_stellarnet
 
-Custom Plugin to use StellarNet spectrometers in PyMoDAQ.
+Custom PyMoDAQ Plugin to use StellarNet spectrometers in PyMoDAQ.
 
 
 Authors
