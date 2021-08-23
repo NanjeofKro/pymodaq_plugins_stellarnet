@@ -18,7 +18,7 @@ Custom Plugin to use StellarNet spectrometers in PyMoDAQ.
 Authors
 =======
 
-* Romain Géneaux
+* Romain Geneaux
 
 Contributors
 ============
