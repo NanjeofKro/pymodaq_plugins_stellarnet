@@ -13,6 +13,7 @@ from ...hardware import stellarnet as sn
 from scipy.ndimage.filters import uniform_filter1d
 import os, glob
 
+
 class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
     """
     """
@@ -21,8 +22,8 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         {
             "title": "Spectrometer Model:",
             "name": "spectrometer_model",
-            "type": "list",
-            "value": [],
+            "type": "str",
+            "value": "default",
             "readonly": True,
         },
         {
@@ -46,9 +47,15 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             "value": False,
         },
         {
-            "title": "Take snapshot:",
+            "title": "Take snapshot",
             "name": "take_snap",
-            "type": "bool",
+            "type": "bool_push",
+            "value": False,
+        },
+        {
+            "title": "Clear snapshot",
+            "name": "clear_snap",
+            "type": "bool_push",
             "value": False,
         },
         {
@@ -100,7 +107,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
         if self.settings.child("cal_path").value() == "":
             sn_path = os.path.dirname(sn.__file__)
-            cal_path = glob.glob(sn_path+"\\*.CAL")[0]
+            cal_path = glob.glob(sn_path + "\\*.CAL")[0]
             self.settings.child("cal_path").setValue(cal_path)
 
     def commit_settings(self, param):
@@ -125,7 +132,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
         elif param.name() == "take_snap":
             try:
-                self.snapshot = np.asarray(self.moving_average(self.controller.read_spectrum()))
+                self.snapshot = self.parent.datas[0]['data'][0]   # Get currently displayed data
                 self.settings.child("take_snap").setValue(False)
 
             except Exception as e:
@@ -133,6 +140,10 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                     ThreadCommand("Update_Status", [getLineInfo() + str(e), "log"])
                 )
                 self.status.info = getLineInfo() + str(e)
+
+        elif param.name() == "clear_snap":
+            self.snapshot = None
+            self.settings.child("clear_snap").setValue(False)
 
     def ini_detector(self, controller=None):
         """Detector communication initialization
@@ -150,7 +161,6 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         """
 
         try:
-            print(os.getcwd())
             self.status.update(
                 edict(
                     initialized=False,
@@ -177,6 +187,10 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                 if devices_count > 1:
                     print(
                         "Warning, several Stellarnet devices found. I'll load the first one only."
+                    )
+                elif devices_count == 0:
+                    raise Exception(
+                        "No device was found"
                     )
 
                 self.controller = sn.StellarNet(
@@ -226,7 +240,6 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                     ThreadCommand("Update_Status", [getLineInfo() + str(e), "log"])
                 )
 
-            self.status.info = "Log test"
             self.status.initialized = True
             self.status.controller = self.controller
             return self.status
@@ -240,10 +253,19 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             return self.status
 
     def close(self):
-        """
-            Not implemented.
-        """
+        # devices = usb.core.find(
+        #     find_all=True,
+        #     idVendor=sn.StellarNet._STELLARNET_VENDOR_ID,
+        #     idProduct=sn.StellarNet._STELLARNET_PRODUCT_ID)
+        # usb.util.dispose_resources(devices[0])
         return
+
+    def get_data(self):
+        data = np.asarray(self.moving_average(self.controller.read_spectrum()))
+        if self.calib_on and self.calib_file_ok:
+            data = data * self.calibration
+        return data
+
 
     def do_irradiance_calibration(self):
         calibration = []
@@ -261,7 +283,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             self.calib_file_ok = True
 
             self.calibration = np.interp(
-                self.x_axis[0]["data"]*1e9, calibration[:, 0], calibration[:, 1]
+                self.x_axis[0]["data"] * 1e9, calibration[:, 0], calibration[:, 1]
             )
 
         except:
@@ -285,10 +307,10 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
         coeffs = self.controller._config["coeffs"]
         return 1e-9 * (
-            (pixels ** 3) * coeffs[3] / 8.0
-            + (pixels ** 2) * coeffs[1] / 4.0
-            + pixels * coeffs[0] / 2.0
-            + coeffs[2]
+                (pixels ** 3) * coeffs[3] / 8.0
+                + (pixels ** 2) * coeffs[1] / 4.0
+                + pixels * coeffs[0] / 2.0
+                + coeffs[2]
         )
 
     def grab_data(self, Naverage=1, **kwargs):
@@ -300,22 +322,11 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         """
         ##synchrone version (blocking function)
         if self.calib_on and self.calib_file_ok:
-            try:
-                data_tot = [
-                    self.calibration
-                    * np.asarray(self.moving_average(self.controller.read_spectrum()))
-                ]
-            except:
-                data_tot = [
-                    np.asarray(self.moving_average(self.controller.read_spectrum()))
-                ]
-            label = "Irradiance (W/m2)"
-
+            label = ["Irradiance (W/m2)"]
         else:
-            data_tot = [
-                np.asarray(self.moving_average(self.controller.read_spectrum()))
-            ]
             label = ["Signal (counts)"]
+
+        data_tot = [self.get_data()]
 
         if self.snapshot is not None:
             data_tot.append(self.snapshot)
@@ -328,15 +339,3 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                 )
             ]
         )
-
-    # def callback(self):
-    #     """optional asynchrone method called when the detector has finished its acquisition of data"""
-    #     data_tot = self.controller.your_method_to_get_data_from_buffer()
-    #     self.data_grabed_signal.emit([DataFromPlugins(name='Mock1', data=data_tot,
-    #                                               dim='Data1D', labels=['dat0', 'data1'])])
-
-    def stop(self):
-        """
-            Not implemented.
-        """
-        return
