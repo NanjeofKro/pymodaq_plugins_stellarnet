@@ -339,3 +339,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                 )
             ]
         )
+        
+    def stop(self):
+        self.emit_status(ThreadCommand('Update_Status', ['Stopping Acquisition']))
+        return ''
