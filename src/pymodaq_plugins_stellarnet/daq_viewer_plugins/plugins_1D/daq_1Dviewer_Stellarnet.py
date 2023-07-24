@@ -131,7 +131,7 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
         elif param.name() == "take_snap":
             try:
-                self.snapshot = self.parent.datas[0]['data'][0]   # Get currently displayed data
+                self.snapshot = self.parent.datas[0]['data'][0]  # Get currently displayed data
                 self.settings.child("take_snap").setValue(False)
 
             except Exception as e:
@@ -209,19 +209,20 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
 
             # get the x_axis (you may want to to this also in the commit settings if x_axis may have changed
             data_x_axis = self.get_wl_axis()
-            self.x_axis = [Axis(data=data_x_axis, label="Wavelength", units="m")]
+            self.x_axis = Axis(data=data_x_axis, label="Wavelength", units="m")
+            self.x_axis.index = 0
 
             # initialize viewers pannel with the future type of data
             name = usb.util.get_string(
                 self.controller._device, 100, self.controller._device.iProduct
             )
             data_init = [
-                    DataFromPlugins(
-                        name=name,
-                        dim="Data1D",
-                        data=[np.asarray(self.controller.read_spectrum())],
-                        x_axis=Axis(data=data_x_axis, label="Wavelength", units="m"),
-                    )
+                DataFromPlugins(
+                    name=name,
+                    dim="Data1D",
+                    data=[np.asarray(self.controller.read_spectrum())],
+                    axes=[self.x_axis],
+                )
             ]
             QtWidgets.QApplication.processEvents()
             self.dte_signal_temp.emit(DataToExport('Stellarnet', data=data_init))
@@ -260,7 +261,6 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
         if self.calib_on and self.calib_file_ok:
             data = data * self.calibration
         return data
-
 
     def do_irradiance_calibration(self):
         calibration = []
@@ -328,9 +328,10 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             label.append("Snapshot")
 
         self.dte_signal.emit(DataToExport('Stellarnet',
-                             data=[DataFromPlugins(
-                    name="StellarNet", data=data_tot, dim="Data1D", labels=label, x_axis=self.x_axis[0])]))
-        
+                                          data=[DataFromPlugins(
+                                              name="StellarNet", data=data_tot, dim="Data1D", labels=label,
+                                              axes=[self.x_axis])]))
+
     def stop(self):
         self.emit_status(ThreadCommand('Update_Status', ['Stopping Acquisition']))
         return ''
