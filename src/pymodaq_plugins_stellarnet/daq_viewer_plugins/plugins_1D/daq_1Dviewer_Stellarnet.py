@@ -3,14 +3,13 @@ from easydict import EasyDict as edict
 from pymodaq.utils.daq_utils import (
     ThreadCommand,
     getLineInfo,
-    DataFromPlugins,
-    Axis,
 )
+from pymodaq.utils.data import Axis, DataFromPlugins, DataToExport
 from pymodaq.control_modules.viewer_utility_classes import DAQ_Viewer_base, comon_parameters
 from PyQt5 import QtWidgets
 import usb
 from ...hardware import stellarnet as sn
-from scipy.ndimage.filters import uniform_filter1d
+from scipy.ndimage import uniform_filter1d
 import os, glob
 
 
@@ -218,20 +217,17 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
                 self.controller._device, 100, self.controller._device.iProduct
             )
             data_init = [
-                (
                     DataFromPlugins(
                         name=name,
                         dim="Data1D",
                         data=[np.asarray(self.controller.read_spectrum())],
                         x_axis=Axis(data=data_x_axis, label="Wavelength", units="m"),
                     )
-                )
             ]
             QtWidgets.QApplication.processEvents()
-            self.data_grabed_signal_temp.emit(data_init)
-            self.data_grabed_signal_temp.emit(
-                data_init
-            )  # works the second time for some reason
+            self.dte_signal_temp.emit(DataToExport('Stellarnet', data=data_init))
+            self.dte_signal_temp.emit(DataToExport('Stellarnet', data=data_init))
+            # works the second time for some reason
 
             try:
                 self.do_irradiance_calibration()
@@ -332,13 +328,9 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             data_tot.append(self.snapshot)
             label.append("Snapshot")
 
-        self.data_grabed_signal.emit(
-            [
-                DataFromPlugins(
-                    name="StellarNet", data=data_tot, dim="Data1D", labels=label, x_axis=self.x_axis[0]
-                )
-            ]
-        )
+        self.dte_signal.emit(DataToExport('Stellarnet',
+                             data=[DataFromPlugins(
+                    name="StellarNet", data=data_tot, dim="Data1D", labels=label, x_axis=self.x_axis[0])]))
         
     def stop(self):
         self.emit_status(ThreadCommand('Update_Status', ['Stopping Acquisition']))
