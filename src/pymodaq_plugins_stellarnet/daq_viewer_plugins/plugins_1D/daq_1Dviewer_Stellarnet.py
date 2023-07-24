@@ -210,7 +210,6 @@ class DAQ_1DViewer_Stellarnet(DAQ_Viewer_base):
             # get the x_axis (you may want to to this also in the commit settings if x_axis may have changed
             data_x_axis = self.get_wl_axis()
             self.x_axis = [Axis(data=data_x_axis, label="Wavelength", units="m")]
-            self.emit_x_axis()
 
             # initialize viewers pannel with the future type of data
             name = usb.util.get_string(
